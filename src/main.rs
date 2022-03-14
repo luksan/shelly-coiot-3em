@@ -2,16 +2,19 @@
 
 mod coiot;
 
-use anyhow::{bail, Context, Result};
+use crate::coiot::Response;
+use anyhow::{Context, Result};
 use coap::CoAPClient;
 use coap_lite::CoapResponse;
 use coiot::{Description, Status};
 use serde::Deserialize;
 use std::fmt::Debug;
+use std::io::Read;
 
 fn get_json_payload<'b, 'a: 'b, T: Deserialize<'b> + Debug>(resp: &'a CoapResponse) -> Result<T> {
     let payload_str =
         std::str::from_utf8(resp.message.payload.as_slice()).context("Payload not valid utf8")?;
+    // println!("{}", json::parse(payload_str).unwrap().pretty(2));
     serde_json::from_str(payload_str)
         .with_context(|| json::parse(payload_str).map(|j| j.pretty(2)).unwrap())
 }
@@ -23,7 +26,8 @@ fn get_description() -> Result<Description> {
 
 fn get_status() -> Result<Status> {
     let x = CoAPClient::get("coap://192.168.10.107/cit/s")?;
-    get_json_payload(&x)
+    let r = Response(x.message);
+    r.deserialize_payload()
 }
 
 fn print_status() -> Result<()> {
@@ -35,7 +39,21 @@ fn print_status() -> Result<()> {
     Ok(())
 }
 
+fn observe() -> Result<()> {
+    let mut c = CoAPClient::new("192.168.10.107:5683")?;
+    c.observe("/cit/s", |pkt| {
+        let r = Response(pkt);
+        println!("{:?}", r.deserialize_payload::<Status>())
+    })
+    .context("Failed to start observer.")?;
+    let _ = std::io::stdin().read_to_string(&mut String::new());
+    c.unobserve();
+    Ok(())
+}
+
 fn main() -> Result<()> {
     print_status()?;
+    //get_status()?;
+    // observe()?;
     Ok(())
 }
