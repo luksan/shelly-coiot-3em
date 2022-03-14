@@ -185,6 +185,12 @@ impl Status {
     pub fn gen_entries(&self) -> impl Iterator<Item = StatusEntry> + '_ {
         self.generic.iter().copied()
     }
+
+    pub fn pretty_print(&self, desc: &Description) {
+        for e in self.generic.iter() {
+            e.pretty_print(desc);
+        }
+    }
 }
 
 #[derive(Deserialize_tuple, Debug, Copy, Clone)]
